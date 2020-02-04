@@ -381,8 +381,9 @@ demo: 点击三个改变颜色的按钮，改变画板的背景颜色
 
 10. `v-for`
 
-1. 不要给空节点`template`加key值
-2. key值要唯一，不要使用数组index作为key值
+- 不要给空节点`template`加key值
+
+- key值要唯一，不要使用数组index作为key值
 
 ```vue
 div id="app">
