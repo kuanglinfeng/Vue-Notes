@@ -1,3 +1,8 @@
+---
+typora-copy-images-to: ./img
+
+---
+
 # Vue-Notes
 Vue Family Meals.
 
@@ -268,7 +273,7 @@ Vue Family Meals.
 
 ```vue
 <div id="app">
-<!--  显示：hello vue-->
+<!--  显示：hello vue  -->
   <h1 v-show="isShow">
     {{ message }}
   </h1>
@@ -305,13 +310,13 @@ Vue Family Meals.
 </style>
 
 <div id="app">
-<!--  多类名-->
+<!--  多类名  -->
 <!--  <img :src="imgUrl" :class="[className1, className2]" alt="">-->
 
-<!--  可选择的类名-->
+<!--  可选择的类名  -->
   <img :src="imgUrl" :class="{ a: hasClassName1, b: true }" alt="">
 
-<!--  绑定样式-->
+<!--  绑定样式  -->
   <div :style="{width: '100px', height: '100px', backgroundColor: luckyColor}">
 
   </div>
@@ -387,29 +392,29 @@ demo: 点击三个改变颜色的按钮，改变画板的背景颜色
 
 ```vue
 div id="app">
-<!--  遍历数组-->
+<!--  遍历数组  -->
   <ul>
     <li v-for="(item, index) in list" v-bind:key="index">{{ item + index }}</li>
   </ul>
 
-<!--  遍历对象-->
+<!--  遍历对象  -->
   <ul>
     <li v-for="(value, key) in person" :key="key">{{ key + ':' + value }}</li>
   </ul>
 
-<!--  遍历数字-->
+<!--  遍历数字  -->
   <ul>
-<!--    显示：-->
-<!--    1-->
-<!--    2-->
-<!--    3-->
+<!--  显示： -->
+<!--  1  -->
+<!--  2  -->
+<!--  3  -->
     <li v-for="item in 3">{{ item }}</li>
   </ul>
 
-<!--  遍历字符串-->
-<!--  L-->
-<!--  e-->
-<!--  o-->
+<!--  遍历字符串  -->
+<!--  L  -->
+<!--  e  -->
+<!--  o  -->
   <ul>
     <li v-for="item in 'Leo'">{{ item }}</li>
   </ul>
@@ -553,4 +558,223 @@ demo：写一个TodoList
 
 
 ### 自定义指令
+
+自定义指令分为：全局指令和局部指令，全局指令可在多个Vue实例间使用，局部指令只能在某个Vue实例中使用
+
+**全局指令**
+
+可以通过`Vue.directive(directiveName, fn || obj)`，来创建一个自定义指令
+
+现在通过一个需求来了解`directive`的基本使用
+
+需求：对input框输入的字符数进行限制，比如不能超过maxLen个，要求用自定义指令实现
+
+```vue
+<div id="app">
+	<!--  参数为5 字符不超过5个  -->
+  <input type="text" v-slice:5="content" />
+  {{ content }}
+</div>
+
+<script>
+
+  Vue.directive('slice', (el, bindings, vnode) => {
+    // 传入的参数 最多字符个数
+    const maxLen = parseInt(bindings.arg) || 7
+    // context 为指令挂载的Vue实例
+    const context = vnode.context
+    // bindings.expression 为v-slice="express" 绑定的变量「express」
+    let initValue = context[bindings.expression].slice(0, maxLen)
+    // 使初始值的字符个数不超过5个
+    context[bindings.expression] = initValue
+    el.value = initValue
+
+    // 当用户输入字符时，也时刻保证字符个数不超过5个
+    el.oninput = (e) => {
+      let value = e.target.value
+      let newValue = value.slice(0, maxLen)
+      context[bindings.expression] = newValue
+      el.value = newValue
+    }
+  })
+
+  const vm = new Vue({
+    el: '#app',
+    data: {
+      content: ''
+    }
+  })
+
+</script>
+```
+
+`Vue.directive()`传递的参数还可以是一个对象，现在在上一个需求中再加入一个功能，使得`v-slice`可以使用`number`修饰符，即使用此修饰符可以过滤掉非number类型的字符
+
+```vue
+<div id="app">
+  <!--  参数为5 字符不超过5个  -->
+  <input type="text" v-slice:5.number="content" />
+  {{ content }}
+</div>
+
+<script>
+
+  Vue.directive('slice', {
+    // 指令绑定后执行的函数
+    bind(el, bindings, vnode) {
+      // 传入的参数 最大字符个数
+      const maxLen = parseInt(bindings.arg) || 7
+
+      // context 为指令挂载的Vue实例
+      const context = vnode.context
+
+      // bindings.expression 为v-slice="express" 绑定的变量「express」
+      let initValue = context[bindings.expression]
+
+      // 判断是否有 number 修饰符 如果有 则先剔除除数字字符外的其它字符
+      const isOnlyNumber = bindings.modifiers.number
+      if (isOnlyNumber) {
+        initValue = initValue.replace(/[^0-9]/g, '')
+      }
+      // 再截取前maxLen项
+      initValue = initValue.slice(0, maxLen).slice(0, maxLen)
+
+      // 使Vue实例绑定的数据字符个数不超过5个
+      context[bindings.expression] = initValue
+      // 使绑定的DOM的value值字符个数不超过5个
+      el.value = initValue
+
+      // 当用户输入字符时，也时刻保证字符个数不超过5个
+      el.oninput = (e) => {
+        let value = e.target.value
+        if (isOnlyNumber) {
+          value = value.replace(/[^0-9]/g, '')
+        }
+        let newValue = value.slice(0, maxLen)
+        context[bindings.expression] = newValue
+        el.value = newValue
+      }
+
+    },
+    // 虚拟DOM更新后执行的函数
+    update(el, bindings, vnode) {
+      const context = vnode.context
+      const isOnlyNumber = bindings.modifiers.number
+      let value = context[bindings.expression]
+      if (isOnlyNumber) {
+        value = value.replace(/[^0-9]/g, '')
+      }
+      el.value = value
+      context[bindings.expression] = value
+    },
+    // DOM插入到页面后执行的函数
+    inserted(el, bindings, vnode) {
+      el.focus()
+    }
+  })
+
+  const vm = new Vue({
+    el: '#app',
+    data: {
+      content: 'sdfsaf2341as3f'
+    }
+  })
+</script>
+```
+
+
+
+**局部指令**
+
+除了和全局指令书写的位置不一样外，其它都相同
+
+```vue
+<script>
+  const vm = new Vue({
+    el: '#app',
+    directives: {
+      // 函数
+      // slice: (el, bindings, vnode) => {}
+      // 对象
+      slice: {
+        bind() {},
+        update() {},
+        inserted() {}
+      }
+    }
+  })
+</script>
+```
+
+
+
+### 过滤器
+
+比如你有一个数据为money：1000000，现在需要你显示在页面的时候为每隔3位打一个点，但是又不能原数据，这个时候可以用过滤器来搞定
+
+过滤器分为全局过滤器和局部过滤器
+
+全局过滤器：
+
+```vue
+<div id="app">
+<!--  显示：1,000,000  -->
+  {{ money | formatMoney }}
+<!--  显示：3,000,000  -->
+  {{ money | manyMoney(3) | formatMoney}}
+</div>
+
+<script>
+
+  Vue.filter('formatMoney', prevValue => {
+    return prevValue.toLocaleString()
+  })
+
+  Vue.filter('manyMoney', (prevValue, count) => {
+    return prevValue * count
+  })
+
+  const vm = new Vue({
+    el: '#app',
+    data: {
+      money: 1000000
+    }
+  })
+</script>
+```
+
+局部过滤器：
+
+```vue
+<div id="app">
+<!--  显示：1,000,000  -->
+  {{ money | formatMoney }}
+<!--  显示：3,000,000  -->
+  {{ money | manyMoney(3) | formatMoney}}
+</div>
+
+<script>
+
+  const vm = new Vue({
+    el: '#app',
+    data: {
+      money: 1000000
+    },
+    filters: {
+      formatMoney(prevValue) {
+        return prevValue.toLocaleString()
+      },
+      manyMoney(prevValue, count) {
+        return prevValue * count
+      }
+    }
+  })
+</script>
+```
+
+
+
+### Vue实例的挂载流程
+
+![vue-mout](img/vue-mout.png)
 
