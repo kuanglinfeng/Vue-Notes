@@ -778,3 +778,205 @@ demo：写一个TodoList
 
 ![vue-mout](img/vue-mout.png)
 
+
+
+### Vue生命周期
+
+![lifecycle](img/lifecycle.png)
+
+
+
+### 计算属性和侦听器
+
+计算属性：
+
+```vue
+<div id="app">
+<!--  显示：姓名：Flinn, 性别：male, 年龄：21 -->
+  {{ personInfo }}
+</div>
+
+<script>
+
+  const vm = new Vue({
+    el: '#app',
+    data: {
+      name: 'Flinn',
+      age: '21',
+      sex: 'male',
+      message: ''
+    },
+    // 计算属性
+    computed: {
+      // 计算属性函数 只有当其依赖的数据项发生改变后 该函数才会重新执行
+      personInfo() {
+        return `姓名：${this.name}, 性别：${this.sex}, 年龄：${this.age}`
+      }
+    }
+  })
+</script>
+```
+
+侦听器：
+
+函数形式
+
+```vue
+<div id="app">
+<!--  显示：姓名：Flinn，年龄：21 -->
+  {{ message }}
+</div>
+
+<script>
+
+  const vm = new Vue({
+    el: '#app',
+    data: {
+      name: 'Flinn',
+      age: '21',
+      message: ''
+    },
+    mounted() {
+      this.message = `姓名：${this.name}，年龄：${this.age}`
+    },
+    watch: {
+      name(newName) {
+        this.message = `姓名：${newName}，年龄：${this.age}`
+      },
+      age(newAge) {
+        this.message = `姓名：${this.name}，年龄：${newAge}`
+      }
+    }
+  })
+  // 执行下面一行代码 页面将重新渲染 显示：姓名：Flinn Kuang，年龄：21
+  // vm.name = 'Flinn Kuang'
+</script>
+```
+
+对象形式
+
+```vue
+<div id="app">
+<!--  显示：姓名：Flinn，年龄：21 -->
+  {{ message }}
+</div>
+
+<script>
+  const vm = new Vue({
+    el: '#app',
+    data: {
+      name: 'Flinn',
+      age: '21',
+      message: ''
+    },
+    // 对象形式中 immediate属性值为true 会使得页面初始化就能侦听 所以可以替换掉mounted中的操作
+    // mounted() {
+    //   this.message = `姓名：${this.name}，年龄：${this.age}`
+    // },
+    watch: {
+      name: {
+        handler(newName) {
+          this.message = `姓名：${newName}，年龄：${this.age}`
+        },
+        // 一开始就会执行一次
+        immediate: true
+      },
+      age: {
+        handler(newAge) {
+          this.message = `姓名：${this.name}，年龄：${newAge}`
+        },
+        // 一开始就会执行一次
+        immediate: true
+      }
+    }
+  })
+  // 执行下面一行代码 页面将重新渲染 显示：姓名：Flinn Kuang，年龄：21
+  // vm.name = 'Flinn Kuang'
+</script>
+```
+
+
+
+### 组件
+
+#### 全局组件和局部组件
+
+```vue
+<div id="app">
+  <global-hello></global-hello>
+  <local-hello></local-hello>
+</div>
+
+<div id="root">
+  <global-hello></global-hello>
+<!--  报错 下面的组件无法识别  -->
+<!--  <local-hello></local-hello>-->
+</div>
+<script>
+
+  // 全局组件
+  Vue.component('GlobalHello', {
+    template: `<div><h1>{{ message }}</h1></div>`,
+    data() {
+      return {
+        message: 'global hello component'
+      }
+    }
+  })
+
+  // 下面两个Vue实例都可以使用全局组件
+  new Vue({
+    el: '#app',
+    components: {
+      // 局部组件 仅当前Vue实例可用
+      LocalHello: {
+        template: `<p>{{ description }}</p>`,
+        data() {
+          return {
+            description: 'local hello component'
+          }
+        }
+      }
+    }
+  })
+
+  new Vue({
+    el: '#root'
+  })
+</script>
+```
+
+
+
+#### 组件通信
+
+父组件向子组件传递数据：直接利用属性的方式传递数据
+
+```vue
+<div id="app">
+  <person-info v-bind:name="person.name" v-bind:description="person.description"></person-info>
+</div>
+
+<script>
+
+  // 下面两个Vue实例都可以使用全局组件
+  new Vue({
+    el: '#app',
+    data: {
+      person: {
+        name: 'Flinn',
+        description: 'I Love Vue'
+      }
+    },
+    components: {
+      // 局部组件 仅当前Vue实例可用
+      personInfo: {
+        // 必须先声明好接收哪些属性
+        props: ['name', 'description'],
+        template: `<div><h3>{{ name }}</h3><p>{{ description }}</p></div>`
+      }
+    }
+  })
+</script>
+```
+
