@@ -555,6 +555,66 @@ demo：写一个TodoList
   })
 ```
 
+12. `v-slot`
+
+插槽，相当于React中children属性，简写为#
+
+用法1：
+
+```vue
+<div id="app">
+  <my-button type="success">slot插槽</my-button>
+</div>
+
+<script>
+
+  new Vue({
+    el: '#app',
+    data: {
+    },
+    components: {
+      myButton: {
+        // 文字 "slot插槽" 将替换掉<slot></slot>
+        template: `<button>
+                   <slot></slot>
+                 </button>`
+      }
+    }
+  })
+</script>
+```
+
+用法2：
+
+```vue
+<div id="app">
+  <my-button>
+    <template v-slot:left>left content</template>
+    <template #right>right content</template>
+  </my-button>
+</div>
+
+<script>
+
+  new Vue({
+    el: '#app',
+    data: {
+    },
+    components: {
+      myButton: {
+        // 文字 "left content" 将替换掉<slot name="left"></slot>
+        // 文字 "right content" 将替换掉<slot name="right"></slot>
+        template: `<button>
+                    <slot name="left"></slot>
+                    --------------
+                    <slot name="right"></slot>
+                  </button>`
+      }
+    }
+  })
+</script>
+```
+
 
 
 ### 自定义指令
@@ -681,8 +741,6 @@ demo：写一个TodoList
   })
 </script>
 ```
-
-
 
 **局部指令**
 
@@ -950,6 +1008,10 @@ demo：写一个TodoList
 
 #### 组件通信
 
+##### 父向子传递数据
+
+1. 传递属性
+
 父组件向子组件传递数据：直接利用属性的方式传递数据
 
 ```vue
@@ -975,6 +1037,455 @@ demo：写一个TodoList
         props: ['name', 'description'],
         template: `<div><h3>{{ name }}</h3><p>{{ description }}</p></div>`
       }
+    }
+  })
+</script>
+```
+
+props类型约束：将props改为一个对象的形式
+
+```vue
+<div id="app">
+  <person-info :name="person.name" :age="person.age" :description="person.description" :friends="person.friends">
+  </person-info>
+</div>
+
+<script>
+
+  new Vue({
+    el: '#app',
+    data: {
+      person: {
+        name: 'Flinn',
+        age: 21,
+        description: 'I Love Vue',
+        friends: ['Mary', 'Leon', 'Jack']
+      }
+    },
+    components: {
+      // 局部组件 仅当前Vue实例可用
+      personInfo: {
+        // 必须先声明好接收哪些属性
+        // 对象形式 可以对属性进行类型约束
+        props: {
+          name: {
+            content: {
+              type: String,
+              default: 'typing...',
+              required: true
+            }
+          },
+          age: {
+            type: Number,
+            // 对数字进行验证约束 返回true才符合要求
+            validator(age) {
+              return age >=0 && age <= 150
+            }
+          },
+          description: {
+            type: String
+          },
+          // 如果约束的是一个对象则默认值必须是个函数 通过函数返回值来指定默认值
+          friends: {
+            type: Array,
+            default: () => ['Mary']
+          }
+        },
+        template: `<div>
+                    <h3>{{ name }}</h3>
+                    <p>{{ age }}</p>
+                    <p>{{ description }}</p>
+                    <ul>
+                      <li v-for="(item, index) in friends" :key="index">{{ item }}</li>
+                    </ul>
+                   </div>`
+      }
+    }
+  })
+</script>
+```
+
+2. 多重组件间接传值 - `vm.$attrs`优化
+
+`vm.$attrs`包括的是组件没有被注册的属性
+
+现在有这么一个场景，vm实例上有title和content两个数据，需要vm实例对其子组件传递一个title数据，对其孙子组件传递一个content数据
+
+根据上面学习的利用属性传值，可以写出如下代码：
+
+```vue
+<div id="app">
+  <my-content :title="title" :content="content"></my-content>
+</div>
+
+<script>
+
+  new Vue({
+    el: '#app',
+    data: {
+      content: '我是内容',
+      title: '我是标题'
+    },
+    components: {
+      myContent: {
+        props: ['title', 'content'],
+        template: `
+          <div>
+            <h3>{{ title }}</h3>
+            <my-p :content="content"></my-p>
+          </div>
+        `,
+        components: {
+          myP: {
+            props: ['content'],
+            template: `<p>{{ content }}</p>`
+          }
+        }
+      }
+    }
+  })
+</script>
+```
+
+但是会有一个问题，父组件my-content根本没有用到数据content，它接收数据content的原因仅仅是因为，孙子组件需要数据content，也就是说，只要孙子组件能接收到数据content，那么父组件my-content也就没有必要接收数据content了，现在使用`vm.$attrs`可以对此进行优化
+
+```vue
+<div id="app">
+  <my-content :title="title" :content="content"></my-content>
+</div>
+
+<script>
+
+  const vm = new Vue({
+    el: '#app',
+    data: {
+      content: '我是内容',
+      title: '我是标题'
+    },
+    components: {
+      myContent: {
+        props: ['title'],
+        // 不继承属性 这样没注册的属性就不会跑到当前的模板的根元素上了
+        inheritAttrs: false,
+        template: `
+          <div>
+            <h3>{{ title }}</h3>
+            <my-p v-bind="$attrs"></my-p>
+          </div>
+        `,
+        components: {
+          myP: {
+            props: ['content'],
+            template: `<p>{{ content }}</p>`
+          }
+        }
+      }
+    }
+  })
+</script>
+```
+
+3. 多层组件直接传值 - `vm.$parent & vm.$children`
+
+一般不建议使用，可能会使得代码的可维护性变得很差
+
+```vue
+<div id="app">
+  <my-content></my-content>
+</div>
+
+<script>
+
+  const vm = new Vue({
+    el: '#app',
+    data: {
+      content: '我是内容',
+      title: '我是标题'
+    },
+    components: {
+      myContent: {
+        created() {
+          this.title = this.$parent.title
+        },
+        mounted() {
+          console.log(this.$children[0].message)
+        },
+        template: `
+          <div>
+            <h3>{{ title }}</h3>
+            <my-p></my-p>
+          </div>
+        `,
+        components: {
+          myP: {
+            data() {
+              return {
+                message: `myP is myContent's first child`
+              }
+            },
+            created() {
+              this.content = this.$parent.$parent.content
+            },
+            template: `<p>{{ content }}</p>`
+          }
+        }
+      }
+    }
+  })
+</script>
+```
+
+4. 多层组件直接传值 - `provide & inject`
+
+一般不建议使用，可能会导致代码可维护性变差。
+
+```vue
+<div id="app">
+  <my-content></my-content>
+</div>
+
+<script>
+
+  const vm = new Vue({
+    el: '#app',
+    // 可以直接提供给后代组件 后代组件只需要inject后就可使用数据了
+    provide: {
+      content: '我是内容',
+      title: '我是标题'
+    },
+    components: {
+      myContent: {
+        // inject
+        inject: ['title'],
+        template: `
+          <div>
+            <h3>{{ title }}</h3>
+            <my-p></my-p>
+          </div>
+        `,
+        components: {
+          myP: {
+            // inject
+            inject: ['content'],
+            template: `<p>{{ content }}</p>`
+          }
+        }
+      }
+    }
+  })
+</script>
+```
+
+
+
+##### 子向父传递数据
+
+1. `vm.$children`直接使用子组件的方法和属性
+2. `vm.$refs`拿到dom或组件的引用
+
+```vue
+<div id="app">
+  <div ref="dom">i am a div</div>
+  <my-component ref="component"></my-component>
+</div>
+
+<script>
+
+  const vm = new Vue({
+    el: '#app',
+    mounted() {
+      // 输出 hello world
+      console.log(this.$refs.component.msg)
+    },
+    components: {
+      myComponent: {
+        data() {
+          return {
+            msg: 'hello world'
+          }
+        },
+        template: `<div>i am a component</div>`
+      }
+    }
+  })
+</script>
+```
+
+3. 传递属性props的方式
+
+```vue
+<div id="app">
+  <my-component :foo="foo"></my-component>
+</div>
+
+<script>
+
+  const vm = new Vue({
+    el: '#app',
+    methods: {
+      // 将在子组件中被调用 同时子组件调用时传入的参数数据 将会在这里被输出
+      foo(data) {
+        console.log(data)
+      }
+    },
+    components: {
+      myComponent: {
+        props: ['foo'],
+        data() {
+          return {
+            msg: 'hello world'
+          }
+        },
+        methods: {
+          handleClick() {
+            this.foo('click')
+          }
+        },
+        template: `<div>i am a component
+                    <button @click="handleClick">点击</button>
+                  </div>`
+      }
+    }
+  })
+</script>
+```
+
+4. `vm.$listeners`
+
+可以监听自定义事件
+
+```vue
+<div id="app">
+  <my-component @click="print"></my-component>
+</div>
+
+<script>
+
+  const vm = new Vue({
+    el: '#app',
+    methods: {
+      // 将在子组件中handleClick函数中被调用
+      // 同时子组件调用时传入的参数数据 将会在这里被输出
+      print(data) {
+        console.log(data)
+      }
+    },
+    components: {
+      myComponent: {
+        props: ['foo'],
+        data() {
+          return {
+            msg: 'hello world'
+          }
+        },
+        methods: {
+          handleClick() {
+            // 执行组件上的一个叫做 'click' 属性值的函数，并且该被执行的函数传入参数 "hello"
+            this.$listeners.click('hello')
+          }
+        },
+        template: `<div>i am a component
+                    <button @click="handleClick">点击</button>
+                  </div>`
+      }
+    }
+  })
+</script>
+```
+
+5. `vm.$emit`
+
+和`$listeners`用法很相似，也可以监听自定义事件
+
+```vue
+<div id="app">
+  <my-component @xxx="print"></my-component>
+</div>
+
+<script>
+
+  const vm = new Vue({
+    el: '#app',
+    methods: {
+      // 将在子组件中handleClick函数中被调用
+      // 同时子组件调用时传入的参数数据 将会在这里被输出
+      print(data) {
+        console.log(data)
+      }
+    },
+    components: {
+      myComponent: {
+        props: ['foo'],
+        data() {
+          return {
+            msg: 'hello world'
+          }
+        },
+        methods: {
+          handleClick() {
+            // 执行组件上的一个叫做 'click' 属性值的函数，并且该被执行的函数传入参数 "hello"
+            this.$emit('xxx', 'hello')
+          }
+        },
+        template: `<div>i am a component
+                    <button @click="handleClick">点击</button>
+                  </div>`
+      }
+    }
+  })
+</script>
+```
+
+6. `event bus`
+
+事件总线，说白了就是给Vue原型对象上绑定一个新的Vue实例，用这个实例来管理事件的监听和触发
+
+```vue
+<div id="app">
+  <my-input></my-input>
+  <hr />
+  <my-content></my-content>
+</div>
+
+<script>
+
+  Vue.prototype.bus = new Vue()
+
+  const vm = new Vue({
+    el: '#app',
+    components: {
+      myInput: {
+        template: `<div>
+                     <input type="text" v-model.lazy="inputValue">
+                     <button @click="handleClick">提交</button>
+                   </div>`,
+        data() {
+          return {
+            inputValue: ''
+          }
+        },
+        methods: {
+          handleClick() {
+            // 触发事件总线上的click事件
+            this.bus.$emit('click', this.inputValue)
+          }
+        }
+      },
+      myContent: {
+        template: `<div>{{ content }}</div>`,
+        data() {
+          return {
+            content: ''
+          }
+        },
+        created() {
+          // 为事件总线上绑定一个click事件 并等待被触发
+          this.bus.$on('click', (data) => {
+            // 将传递进来的数据赋给组件自身数据content
+            this.content = data
+          })
+        }
+      },
     }
   })
 </script>
