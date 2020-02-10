@@ -1491,3 +1491,283 @@ props类型约束：将props改为一个对象的形式
 </script>
 ```
 
+
+
+##### 父子双向通信
+
+直接来个demo，demo的需求是，向子组件传递一个数字，子组件每隔1s对这个数字进行加1再传回给父组件显示:
+
+```vue
+<div id="app">
+  <div>当前计数：{{ count }}</div>
+  <hr />
+  <my-count :value="count" @add="handleAdd"></my-count>
+</div>
+
+<script>
+
+  Vue.component('myCount', {
+    props: ['value'],
+    mounted() {
+      setInterval(() => {
+        let value = this.value + 1
+        this.$emit('add', value)
+      }, 1000)
+    },
+    template: `<div>{{ value }}</div>`
+  })
+
+  const vm = new Vue({
+    el: '#app',
+    data: {
+      count: 100
+    },
+    methods: {
+      handleAdd(newCount) {
+        this.count = newCount
+      }
+    }
+  })
+</script>
+```
+
+语法糖1：`:value + @input = v-model`
+
+可以通过语法糖v-model来简化上面的代码：
+
+```vue
+<div id="app">
+  <div>当前计数：{{ count }}</div>
+  <hr />
+  <my-count v-model="count"></my-count>
+</div>
+
+<script>
+
+  Vue.component('myCount', {
+    props: ['value'],
+    mounted() {
+      setInterval(() => {
+        let value = this.value + 1
+        // 这里需要改为input事件 才符合v-model的要求
+        this.$emit('input', value)
+      }, 1000)
+    },
+    template: `<div>{{ value }}</div>`
+  })
+
+  const vm = new Vue({
+    el: '#app',
+    data: {
+      count: 100
+    }
+  })
+</script>
+```
+
+语法糖2：`:value + @update:value = :value.sync`
+
+```vue
+<div id="app">
+  <div>当前计数：{{ count }}</div>
+  <hr />
+  <!--  当value值更新的时候执行handleInput函数  -->
+  <my-count :value="count" @update:value="handleInput"></my-count>
+  <!--  和上面的效果相同 可以不用写handleInput函数 -->
+  <my-count :value.sync="count"></my-count>
+</div>
+
+<script>
+
+  Vue.component('myCount', {
+    props: ['value'],
+    mounted() {
+      setInterval(() => {
+        let value = this.value + 1
+        // 这里需要改为input事件 才符合v-model的要求
+        this.$emit('update:value', value)
+      }, 1000)
+    },
+    template: `<div>{{ value }}</div>`
+  })
+
+  const vm = new Vue({
+    el: '#app',
+    data: {
+      count: 100
+    },
+    methods: {
+      handleInput(newValue) {
+        this.count = newValue
+      }
+    }
+  })
+</script>
+```
+
+
+
+
+
+
+
+
+
+## Vue 进阶
+
+
+
+### 路由
+
+1. 使用vue-cli搭建项目
+
+2. 安装vue-router：`vue add vue-router`
+
+#### 基础配置
+
+1. `router/index.js -- 路由配置文件`
+
+```js
+
+import Vue from 'vue'
+import VueRouter from 'vue-router'
+import Home from '../views/Home.vue'
+
+// 使用路由
+Vue.use(VueRouter)
+
+const routes = [
+  {
+    path: '/',
+    name: 'Home',
+    component: Home
+  },
+  {
+    path: '/learn',
+    name: 'Learn',
+    // 懒加载
+    component: () => import('../views/Learn.vue')
+  },
+  {
+    path: '/reader',
+    name: 'Reader',
+    component: () => import('../views/Reader')
+  },
+  {
+    path: '/community',
+    name: 'Community',
+    component: () => import('../views/Community')
+  },
+  {
+    path: '/about',
+    name: 'About',
+    component: () => import(/* webpackChunkName: "about" */ '../views/About.vue')
+  }
+]
+
+const router = new VueRouter({
+  mode: 'history',
+  // 为类名为router-link-exact-active取别名 为 active-exact
+  linkExactActiveClass: 'active-exact',
+  // 为类名为router-link-active取别名 为 active
+  linkActiveClass: 'active',
+  routes
+})
+
+export default router
+```
+
+2. `App.vue文件`路由跳转
+
+```vue
+<template>
+  <div id="app">
+    <div class="header">
+      <div class="logo">爱读书</div>
+      <ul class="nav">
+        <!--  跳转到根路径 真实的DOM由a标签变为li标签  -->
+        <router-link to="/" tag="li">首页</router-link>
+        <!--  跳转到name为Learn路由  -->
+        <router-link :to="{name: 'Learn'}" tag="li">图书学习</router-link>
+        <router-link to="/reader" tag="li">读者展示</router-link>
+        <!--  对象形式 -->
+        <router-link :to="{path: '/about'}" tag="li">关于</router-link>
+        <router-link to="/community" tag="li">社区</router-link>
+      </ul>
+    </div>
+    <!-- 必不可少的一个展示组件 会根据所跳转的路由 显示匹配的组件 -->
+    <router-view class="view"/>
+  </div>
+</template>
+
+<style lang="scss">
+  .header {
+    display: flex;
+    justify-content: space-between;
+    background-color: #38f;
+    line-height: 70px;
+    padding: 0 200px 2px;
+    color: #fff;
+
+    .nav {
+      display: flex;
+
+      li {
+        margin: 0 20px;
+        cursor: pointer;
+      }
+    }
+  }
+  .view {
+    padding: 50px 200px;
+  }
+  .router-link-exact-active {
+    font-weight: bold;
+  }
+</style>
+```
+
+
+
+#### 嵌套路由
+
+```js
+...
+{
+    path: '/community',
+    name: 'Community',
+    // 每次访问 /community 时 重定向到  /community/academic
+    redirect: '/community/academic',
+    component: () => import('../views/Community'),
+    // 嵌套的子路由
+    children: [
+      {
+        path: 'academic',
+        name: 'Academic',
+        component: () => import('../views/Academic')
+      },
+      {
+        path: 'download',
+        name: 'Download',
+        component: () => import('../views/Download')
+      },
+      {
+        path: 'personal',
+        name: 'Personal',
+        component: () => import('../views/Personal')
+      }
+    ]
+  },
+...
+```
+
+
+
+#### 导航守卫
+
+“导航”表示路由正在发生改变。
+
+正如其名，`vue-router` 提供的导航守卫主要用来通过跳转或取消的方式守卫导航。有多种机会植入路由导航过程中：全局的, 单个路由独享的, 或者组件级的。
+
+看文档：[https://router.vuejs.org/zh/guide/advanced/navigation-guards.html#%E5%85%A8%E5%B1%80%E5%89%8D%E7%BD%AE%E5%AE%88%E5%8D%AB](https://router.vuejs.org/zh/guide/advanced/navigation-guards.html#全局前置守卫)
+
